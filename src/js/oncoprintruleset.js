@@ -935,16 +935,85 @@ var Rule = (function () {
     return Rule;
 })();
 
+// The GradientCategoricalRuleSet class delegates RuleSet API
+// calls to GradientRuleSet and/or CategoricalRuleSet classes.
+class GradientCategoricalRuleSet extends RuleSet {
+
+	constructor(params) {
+		super(params);
+		this.categoricalRuleSet = new CategoricalRuleSet(params);
+		this.gradientRuleSet = new GradientRuleSet(params);
+	}
+
+	// RuleSet API
+	apply(data, cell_width, cell_height, out_active_rules, data_id_key, important_ids) {
+
+		var dataRules = [];
+
+		// check the type of datum (categorical or gradient)
+		// and delegate the fetching of shape to the appropriate
+		// RuleSet type
+		for (var i = 0; i < data.length; i++) {
+			var datum = data[i];
+			if ( this.isCategorical(datum) ) {
+				dataRules.push( this.categoricalRuleSet.apply([datum], cell_width, cell_height, out_active_rules, data_id_key, important_ids)[0] );
+			} else if ( this.isGradient(datum) ) {
+				dataRules.push( this.gradientRuleSet.apply([datum], cell_width, cell_height, out_active_rules, data_id_key, important_ids)[0] );
+			} else {
+				dataRules.push([]);
+			}
+		}
+
+		return dataRules;
+	}
+
+	// RuleSet API
+	getRulesWithId(datum) {
+		var categoricalRules = this.categoricalRuleSet.getRulesWithId(datum);
+		var gradientRules = this.gradientRuleSet.getRulesWithId(datum);
+		var rules = categoricalRules.concat(gradientRules);
+		return this.removeNoDataDuplicates(rules);
+	}
+
+	// helper function
+	removeNoDataDuplicates(rules) {
+		var observed = false;
+		var out = [];
+		rules.forEach(d => {
+			if (d.rule.legend_label !== 'No data' || ! observed) {
+				out.push(d);
+				if (d.rule.legend_label === 'No data') {
+					observed = true;
+				}
+			}
+		});
+		return out;
+	}
+
+	// helper function
+	isCategorical(datum) {
+		return datum[this.categoricalRuleSet.category_key] !== undefined;
+	}
+	
+	// helper function
+	isGradient(datum) {
+		return datum[this.categoricalRuleSet.value_key] === undefined; // data with continuous values van still be categorical
+	}
+
+}
+
 module.exports = function (params) {
     if (params.type === 'categorical') {
-	return new CategoricalRuleSet(params);
+		return new CategoricalRuleSet(params);
     } else if (params.type === 'gradient') {
-	return new GradientRuleSet(params);
+		return new GradientRuleSet(params);
+    } else if (params.type === 'gradient+categorical') {
+		return new GradientCategoricalRuleSet(params);
     } else if (params.type === 'bar') {
-	return new BarRuleSet(params);
+		return new BarRuleSet(params);
     } else if (params.type === 'stacked_bar') {
-	return new StackedBarRuleSet(params);
+		return new StackedBarRuleSet(params);
     } else if (params.type === 'gene') {
-	return new GeneticAlterationRuleSet(params);
+		return new GeneticAlterationRuleSet(params);
     }
 };
