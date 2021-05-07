@@ -65,6 +65,6 @@
     "jquery": "^1.11.3",
     "jstat": "^1.7.1",
     "tayden-clusterfck": "^0.7.0",
-    "underscore": "^1.7.0"
+    "underscore": "^1.12.1"
   }
 }
